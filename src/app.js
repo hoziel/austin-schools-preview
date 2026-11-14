@@ -361,13 +361,21 @@ document.getElementById("grab").onclick=()=>setSheet(sheet.dataset.s==="peek"?"h
 
 // ---------- LISTS & CARD ----------
 const fmt=t=>t==null?"—":isFinite(t)?Math.round(t)+"′":"—";
+// The list as plain text, rebuilt with the list, for the "Copy list" button: one school per line, groups as headings.
+let listText=[];
+const copyB=document.getElementById("copyL");
+copyB.onclick=async()=>{const t=listText.join("\n").trim();let ok=true;
+  try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;a.style.cssText="position:fixed;opacity:0";document.body.appendChild(a);a.select();ok=document.execCommand("copy");a.remove()}
+  copyB.textContent=ok?"Copied":"Could not copy";setTimeout(()=>copyB.textContent="Copy list",1600)};
 function renderList(){
+  listText=[];const grade=s=>s[2]==="pvt"?(s.niche||"no grade"):(s.tea||"not rated");
   const L=document.getElementById("list");L.innerHTML="";const sum=document.getElementById("summary");
   const item=(s,note)=>{const j=SCHOOLS.indexOf(s),t=homeT(s),d=document.createElement("div");d.className="item"+(S.sel&&S.sel.t==="sc"&&S.sel.i===j?" sel":"");
     d.innerHTML=`<div class="nm"><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}</div><div class="num">${t!=null?fmt(t)+"<small>drive</small>":(s.students??"—")+"<small>students</small>"}</div><div class="sm">${s[3]} · grades ${s.grades}${t!=null&&s.students?` · ${s.students} students`:""}${note?` · <b>${note}</b>`:""}</div>`;
+    listText.push([s[0],grade(s),t!=null&&isFinite(t)?Math.round(t)+" min drive":null,s[3],"grades "+s.grades,s.students?s.students+" students":null,note||null].filter(Boolean).join(" · "));
     d.onclick=()=>select("sc",j,true);L.appendChild(d)};
-  const head=(t,sub)=>{const d=document.createElement("div");d.className="lhead";d.innerHTML=`${t}${sub?`<small>${sub}</small>`:""}`;L.appendChild(d)};
-  const empty=t=>{const d=document.createElement("div");d.className="lnone";d.textContent=t;L.appendChild(d)};
+  const head=(t,sub)=>{listText.push("",t.toUpperCase());const d=document.createElement("div");d.className="lhead";d.innerHTML=`${t}${sub?`<small>${sub}</small>`:""}`;L.appendChild(d)};
+  const empty=t=>{listText.push(t);const d=document.createElement("div");d.className="lnone";d.textContent=t;L.appendChild(d)};
   const byDrive=(a,b)=>homeGrid?homeT(a)-homeT(b):(RANK[rate(b)]||0)-(RANK[rate(a)]||0)||a[0].localeCompare(b[0]);
   // No home pin: every school that passes the filters, best rated first.
   if(!S.home){const rows=SCHOOLS.filter(passFilter).sort(byDrive);
