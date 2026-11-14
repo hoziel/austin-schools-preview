@@ -59,6 +59,9 @@ function setSpeeds(mode){for(let i=0;i<N;i++){const b=BASE[cls[i]];speed[i]=mode
 // Dijkstra
 const DY=DLAT*KY, DX=DLNG*KX, DD=Math.hypot(DX,DY);
 const NB=[[1,0,DY],[-1,0,DY],[0,1,DX],[0,-1,DX],[1,1,DD],[1,-1,DD],[-1,1,DD],[-1,-1,DD]];
+// The model's road speeds come out too fast against real trips (the owner's check, 2026-11-14), so every drive time is
+// stretched by this factor. Hoisted with var so it exists before the first route is computed.
+var SLOW=1.7;
 function dijkstra(src){ // src: one grid cell, or a list of cells (then each cell gets the time to the nearest of them)
   const t=new Float64Array(N).fill(Infinity);const srcs=(Array.isArray(src)?src:[src]).filter(i=>i>=0); if(!srcs.length)return t;
   const hk=[],hv=[]; // binary heap
@@ -68,10 +71,10 @@ function dijkstra(src){ // src: one grid cell, or a list of cells (then each cel
   while(hk.length){const [u,tu]=pop();if(tu>t[u])continue;if(tu>90)break;
     const r=(u/COLS)|0,c=u-r*COLS,su=speed[u]||8;
     for(const [dr,dc,d] of NB){const rr=r+dr,cc=c+dc;if(rr<0||cc<0||rr>=ROWS||cc>=COLS)continue;const v=rr*COLS+cc;const sv=speed[v];if(!sv)continue;
-      const nt=tu+d/((su+sv)/2)*60;if(nt<t[v]){t[v]=nt;push(v,nt)}}}
+      const nt=tu+d/((su+sv)/2)*60*SLOW;if(nt<t[v]){t[v]=nt;push(v,nt)}}}
   return t;
 }
-const ACCESS=2; // minutes to get to/from the road network
+const ACCESS=2*SLOW; // minutes to get to/from the road network
 function timeAt(grid,lat,lng){const i=idxOf(lat,lng);if(i<0)return Infinity;if(isFinite(grid[i]))return grid[i]+ACCESS;const r=(i/COLS)|0,c=i-r*COLS;let m=Infinity;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=c+dc;if(rr>=0&&cc>=0&&rr<ROWS&&cc<COLS)m=Math.min(m,grid[rr*COLS+cc])}return m+ACCESS+1}
 
 // ---------- STATE ----------
