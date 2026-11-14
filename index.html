@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<link rel="stylesheet" href="src/style.css?v=4e97880">
+<link rel="stylesheet" href="src/style.css?v=9f33f1a">
 </head>
 <body>
-<div class="app sat no-l no-r">
+<div class="app sat no-l">
 <main id="main">
  <div class="mapwrap" id="mapwrap">
   <div id="map"></div>
@@ -21,7 +21,7 @@
    <div class="cbox">
     <div class="crow">
      <div class="srch"><input id="q" type="search" placeholder="Find a school" autocomplete="off" spellcheck="false"><div class="qres" id="qres"></div></div>
-     <div class="ptog"><button id="tgL" title="Show or hide the map layers and the notes on sources">Layers</button><button id="tgR" title="Show or hide the list of schools">Results</button></div>
+     <div class="ptog"><button id="tgL" title="Show or hide the map layers and the notes on sources">Layers</button><button id="tgR" class="on" title="Show or hide the list of schools">Results</button></div>
     </div>
     <div class="seg" id="lvl" title="Which schools the map is about. Shows that level's schools and attendance zones"><button data-l="E">Elementary</button><button data-l="M">Middle</button><button data-l="H">High</button></div>
     <div class="seg" id="typ" title="Public schools come with attendance zones. Private schools have none"><button data-t="pub">Public</button><button data-t="pvt">Private</button><button data-t="both">Both</button></div>
@@ -89,6 +89,6 @@
 </div>
 </div>
 
-<script type="module" src="src/app.js?v=4e97880"></script>
+<script type="module" src="src/app.js?v=9f33f1a"></script>
 </body>
 </html>

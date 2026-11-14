@@ -132,6 +132,9 @@ main{position:relative;overflow:hidden;background:var(--land)}
 .lhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .lhd h2{margin:0}
 .lhd button{font-size:12px;padding:4px 10px;border-radius:999px}
+.hq{float:right;width:20px;height:20px;padding:0;border-radius:50%;font:600 11px "IBM Plex Sans",sans-serif;color:var(--muted);line-height:1}
+.hhelp{margin-top:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;line-height:1.45;color:var(--ink)}
+.hhelp[hidden]{display:none}
 .lnone{padding:9px 16px;color:var(--muted);font-size:12.5px;border-bottom:1px solid #f1efe9}
 .item .sm b{font-weight:500;color:#b45309}
 .item.sel{background:#eef2fd}

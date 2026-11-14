@@ -377,6 +377,11 @@ const copyB=document.getElementById("copyL");
 copyB.onclick=async()=>{const t=listText.join("\n").trim();let ok=true;
   try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement("textarea");a.value=t;a.style.cssText="position:fixed;opacity:0";document.body.appendChild(a);a.select();ok=document.execCommand("copy");a.remove()}
   copyB.textContent=ok?"Copied":"Could not copy";setTimeout(()=>copyB.textContent="Copy list",1600)};
+const helpOpen=new Set(),HELP={
+  zoned:"The public school this address belongs to. Every home is assigned one school per level by its district, and a place there is guaranteed. It is listed even when it does not pass your filters.",
+  choice:"Public schools run by your home's school district that have no attendance zone, such as magnet and specialty schools. Nobody is assigned to them: students apply, and some pick by grades or essays, others by lottery. Only families living inside this district can apply, so this group changes when you move the home pin to another district.",
+  charter:"Free public schools run by independent operators (IDEA, Harmony, KIPP, Basis and others), outside every school district. They have no attendance zone and take students from a wide area that usually crosses district lines, so this group stays the same wherever the pin is. Admission is by application, with a lottery when there are more applicants than seats and no academic screening.",
+  pvt:"Schools that charge tuition and choose their own students. They have no attendance zone and no state rating; the grade shown is Niche's."};
 function renderList(){
   listText=[];const grade=s=>s[2]==="pvt"?(s.niche||"no grade"):(s.tea||"not rated");
   const L=document.getElementById("list");L.innerHTML="";const sum=document.getElementById("summary");
@@ -385,7 +390,10 @@ function renderList(){
     listText.push([s[0],grade(s),s.topN?`top lists: ${s.topN}`:null,t!=null&&isFinite(t)?Math.round(t)+" min drive":null,s[3],"grades "+s.grades,s.students?s.students+" students":null,(s.tags||[]).join(", ")||null,note||null].filter(Boolean).join(" · "));
     d.querySelector(".gm").onclick=e=>e.stopPropagation();
     d.onclick=()=>select("sc",j,true);L.appendChild(d)};
-  const head=(t,sub)=>{listText.push("",t.toUpperCase());const d=document.createElement("div");d.className="lhead";d.innerHTML=`${t}${sub?`<small>${sub}</small>`:""}`;L.appendChild(d)};
+  // group heading with a "?" that shows what the group means: hover on desktop, tap on a phone (stays open across redraws)
+  const head=(t,sub,key)=>{listText.push("",t.toUpperCase());const d=document.createElement("div");d.className="lhead";const h=HELP[key];
+    d.innerHTML=`${t}${h?`<button class="hq" title="${h}" aria-label="What is this group?">?</button>`:""}${sub?`<small>${sub}</small>`:""}${h?`<div class="hhelp"${helpOpen.has(key)?"":" hidden"}>${h}</div>`:""}`;
+    if(h)d.querySelector(".hq").onclick=()=>{helpOpen.has(key)?helpOpen.delete(key):helpOpen.add(key);d.querySelector(".hhelp").hidden=!helpOpen.has(key)};L.appendChild(d)};
   const empty=t=>{listText.push(t);const d=document.createElement("div");d.className="lnone";d.textContent=t;L.appendChild(d)};
   const byDrive=(a,b)=>homeGrid?homeT(a)-homeT(b):(RANK[rate(b)]||0)-(RANK[rate(a)]||0)||a[0].localeCompare(b[0]);
   // No home pin: every school that passes the filters, best rated first.
@@ -400,11 +408,11 @@ function renderList(){
   const choice=pass.filter(s=>s[2]==="pub"&&!s.zone&&s[3]===dist),chr=pass.filter(s=>s[2]==="chr"),pvt=pass.filter(s=>s[2]==="pvt");
   const left=pass.filter(s=>s[2]==="pub"&&!choice.includes(s)).length;
   sum.innerHTML=`Schools your home pin can use${homeGrid?", nearest first. Minutes are a rough estimate":""}.${left?` <b>${left}</b> public schools pass the filters but are left out: the pin is not zoned for them.`:""}`;
-  if(pub){head("Your zoned public school",dist?`${dist}. A place is guaranteed`:"");
+  if(pub){head("Your zoned public school",dist?`${dist}. A place is guaranteed`:"","zoned");
     if(zoned.length)zoned.forEach(s=>item(s,passFilter(s)?"":"outside your filters"));else empty(dist?"No zoned school on file at this level.":"No zone data for this spot. Lake Travis, Round Rock and Lago Vista ISDs publish none.");
-    if(choice.length){head(`${dist} schools by application`,"Run by the district, no attendance zone. Open only to homes in the district");choice.forEach(s=>item(s))}
-    head("Charter schools","Free public schools run outside the districts. By application or lottery");chr.length?chr.forEach(s=>item(s)):empty("None pass the filters.")}
-  if(S.types.has("pvt")){head("Private schools","Tuition, by application");pvt.length?pvt.forEach(s=>item(s)):empty("None pass the filters.")}
+    if(choice.length){head(`${dist} schools by application`,"Run by the district, no attendance zone. Open only to homes in the district","choice");choice.forEach(s=>item(s))}
+    head("Charter schools","Free public schools run outside the districts. By application or lottery","charter");chr.length?chr.forEach(s=>item(s)):empty("None pass the filters.")}
+  if(S.types.has("pvt")){head("Private schools","Tuition, by application","pvt");pvt.length?pvt.forEach(s=>item(s)):empty("None pass the filters.")}
 }
 function select(t,i,center){S.sel=t?{t,i}:null;const mob=MOBILE.matches;if(t&&mob)setSheet("half");
   // a school picked from the list: frame the school together with its attendance zone and the home pin
