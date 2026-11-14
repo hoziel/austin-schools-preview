@@ -146,7 +146,9 @@ map.touchZoomRotate.disableRotation();map.keyboard.disableRotation();
 const FOCUS=[[-97.94,30.265],[-97.72,30.40]]; // the six focus neighborhoods
 let W=0,H=0,DPR=1;const V={z:16}; // V.z = screen px per km, refreshed on every draw
 function resize(){DPR=window.devicePixelRatio||1;W=main.clientWidth;H=main.clientHeight;cv.width=W*DPR;cv.height=H*DPR;draw()}
-function fit(){map.fitBounds(FOCUS,{padding:MOBILE.matches?{top:100,bottom:90,left:12,right:12}:24,duration:0})}
+// Start view (and the reset button): around the saved home pin when there is one, otherwise the whole focus area
+function fit(){if(S.home){map.jumpTo({center:[S.home.lng,S.home.lat],zoom:11.6});if(MOBILE.matches)map.panBy([0,-70],{duration:0});return}
+  map.fitBounds(FOCUS,{padding:MOBILE.matches?{top:100,bottom:90,left:12,right:12}:24,duration:0})}
 // The map is never rotated, so screen x depends only on lng and y only on lat.
 let CEN={lng:-97.80,lat:30.34};
 const X=lng=>map.project([lng,CEN.lat]).x, Y=lat=>map.project([CEN.lng,lat]).y;
