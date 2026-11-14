@@ -4,14 +4,18 @@
 const VER=new URL(import.meta.url).search;
 const load=p=>fetch(p.startsWith("data/")?p+VER:p).then(r=>{if(!r.ok)throw new Error(p+": "+r.status);return r.json()});
 const POSITRON="https://tiles.openfreemap.org/styles/positron";
-const [SJ,NBGEO,ZGEO,BASEMAP,STREET,PJ]=await Promise.all(
-  [...["data/schools.json","data/neighborhoods.geojson","data/school_zones.geojson","data/basemap_v1.json"].map(load),load(POSITRON).catch(()=>null),load("data/private_schools.json").catch(()=>({schools:[]}))]);
+const [SJ,NBGEO,ZGEO,BASEMAP,STREET,PJ,TOP]=await Promise.all(
+  [...["data/schools.json","data/neighborhoods.geojson","data/school_zones.geojson","data/basemap_v1.json"].map(load),load(POSITRON).catch(()=>null),load("data/private_schools.json").catch(()=>({schools:[]})),load("data/top_schools.json").catch(()=>({lists:{},schools:{}}))]);
 // SJ.schools: public campuses with state ID and rating, built by scripts/fetch_schools.mjs.
 // PJ.schools: private schools from the federal private school survey, built by scripts/fetch_private_schools.mjs. No state rating;
 // `serves` lists the levels a school covers (for example "EM" for K-8).
 // Each becomes an array [name, level E/M/H/K, type pub/chr/pvt, district, lat, lng] (the v1 shape) that also carries the named fields.
 const PVTC="#7c5cff"; // private schools: no rating colour, so they get their own
 const SCHOOLS=[...SJ.schools,...PJ.schools].map(o=>Object.assign([o.name,o.level,o.type,o.district,o.lat,o.lng],o));
+// Top-list score (data/top_schools.json): the published best-school lists that name a school. s.top holds the mentions,
+// s.topN the score: one point per publisher (U.S. News counts once however many of its lists name the school).
+for(const s of SCHOOLS){s.top=(TOP.schools[s.id]||[]).map(m=>({...m,...TOP.lists[m.list]}));s.topN=new Set(s.top.map(m=>m.short)).size}
+const star=s=>s.topN?`<span class="tp" title="Named by ${[...new Set(s.top.map(m=>m.short))].join(" and ")}">★${s.topN}</span>`:"";
 const RANK={A:5,B:4,C:3,D:2,F:1};
 // NBGEO: neighborhood polygons, built by scripts/fetch_neighborhoods.mjs
 // ZGEO: public school attendance zones, built by scripts/fetch_school_zones.mjs
@@ -67,7 +71,7 @@ const ACCESS=2; // minutes to get to/from the road network
 function timeAt(grid,lat,lng){const i=idxOf(lat,lng);if(i<0)return Infinity;if(isFinite(grid[i]))return grid[i]+ACCESS;const r=(i/COLS)|0,c=i-r*COLS;let m=Infinity;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=c+dc;if(rr>=0&&cc>=0&&rr<ROWS&&cc<COLS)m=Math.min(m,grid[rr*COLS+cc])}return m+ACCESS+1}
 
 // ---------- STATE ----------
-const S={mode:"free",sm:8,minR:5,size:new Set([1,2,3]),levels:new Set(["E","M","H","K"]),types:new Set(["pub","chr","pvt"]),
+const S={mode:"free",sm:8,minR:5,topOnly:false,size:new Set([1,2,3]),levels:new Set(["E","M","H","K"]),types:new Set(["pub","chr","pvt"]),
   sel:null,home:null,placingHome:false,tab:"sc",base:"sat",lvl:"M",lyIso:false,lyNm:true,lyNb:true,lyZip:true,lyRd:false,lyZ:{E:false,M:true,H:false}};
 // Map style. Default: neighborhoods as names only, school zones filled with their school's state rating colour,
 // school markers coloured by rating with the shape telling the level. Other styles from the address bar:
@@ -118,7 +122,7 @@ const sizeOK=s=>!S.size.size||[...S.size].some(i=>s.students>=SIZES[i][1]&&s.stu
 // the Niche grade without its plus or minus (null when Niche has not graded the school).
 const rate=s=>s[2]==="pvt"?(s.niche?s.niche[0]:null):s.tea;
 // A private school with no grade always passes the minimum rating, since there is nothing to judge it by.
-const passFilter=s=>(s.serves?[...s.serves].some(L=>S.levels.has(L)):S.levels.has(s[1]))&&S.types.has(s[2])&&((s[2]==="pvt"&&!s.niche)||(RANK[rate(s)]||0)>=S.minR)&&sizeOK(s);
+const passFilter=s=>(s.serves?[...s.serves].some(L=>S.levels.has(L)):S.levels.has(s[1]))&&S.types.has(s[2])&&((s[2]==="pvt"&&!s.niche)||(RANK[rate(s)]||0)>=S.minR)&&sizeOK(s)&&(!S.topOnly||s.topN>0);
 
 // ---------- RENDER ----------
 const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),main=document.getElementById("mapwrap");
@@ -147,7 +151,7 @@ function colorFor(t){for(let i=1;i<STOPS.length;i++){if(t<=STOPS[i][0]){const [t
 // Colours run from 0 to the "drive to school" limit; past the "drive to school" limit the map is dimmed instead. Rebuilt only when its inputs change.
 let isoGrid=null,isoKey="";
 function ensureIso(){
-  const key=[S.mode,[...S.levels],[...S.types],S.minR,[...S.size],S.sm].join("|");if(key===isoKey)return;isoKey=key;setSpeeds(S.mode);
+  const key=[S.mode,[...S.levels],[...S.types],S.minR,[...S.size],S.topOnly,S.sm].join("|");if(key===isoKey)return;isoKey=key;setSpeeds(S.mode);
   isoGrid=dijkstra(SCHOOLS.filter(passFilter).map(s=>idxOf(s[4],s[5])));
   const g=isoCv.getContext("2d"),img=g.createImageData(COLS,ROWS);
   if(isoGrid)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(cls[r*COLS+c]===3)continue;const t=isoGrid[r*COLS+c]+ACCESS;const o=((ROWS-1-r)*COLS+c)*4;
@@ -208,7 +212,8 @@ function draw(){
     if(!ok){return}
     const byR=S.dc==="rating";
     shape(ctx,x,y,sel?r+2:(inC?r:r*.75),byR?{E:"pub",M:"chr",H:"pvt",K:"pub"}[s[1]]:s[2]);ctx.fillStyle=byR?(s[2]==="pvt"&&!s.niche?PVTC:RC[rate(s)]||"#9aa0aa"):!inC?"#b9b6ae":MC[s[1]];ctx.globalAlpha=selS&&!sel?.4:byR&&!inC?.55:1;ctx.fill();ctx.lineWidth=sel?3:s[2]==="pvt"&&byR?2.6:1.5;ctx.strokeStyle=sel?(sat?"#ffe04a":"#111"):s[2]==="pvt"&&byR?PVTC:(sat?"#111":"#fff");ctx.stroke();ctx.globalAlpha=1; // private schools keep a purple ring; the rest fade while one school is selected
-    const lt=s[2]==="pvt"&&!s.niche?"?":rate(s);if(r>=7.5&&lt){ctx.fillStyle=sat&&inC&&!byR?"#111":"#fff";ctx.fillText(lt,x,y+.5)}});
+    const lt=s[2]==="pvt"&&!s.niche?"?":rate(s);if(r>=7.5&&lt){ctx.fillStyle=sat&&inC&&!byR?"#111":"#fff";ctx.fillText(lt,x,y+.5)}
+    if(s.topN){const sx=x+r*.95,sy=y-r*.95,R=Math.max(5,r*.72);ctx.globalAlpha=selS&&!sel?.4:1;ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?R*.45:R;ctx.lineTo(sx+Math.cos(a)*q,sy+Math.sin(a)*q)}ctx.closePath();ctx.fillStyle="#ffc928";ctx.fill();ctx.lineWidth=1.2;ctx.strokeStyle="#111";ctx.stroke();ctx.globalAlpha=1}});
   // school names: small, to the right of the marker, cut to NAME_MAX characters; only once zoomed in enough to fit them
   if(S.lyNm&&V.z>=NAME_ZOOM){ctx.font="500 10.5px 'IBM Plex Sans',sans-serif";ctx.textAlign="left";
     SCHOOLS.forEach(s=>{if(s===selS||!passFilter(s))return;const x=X(s[5]),y=Y(s[4]);if(x<-20||x>W||y<0||y>H)return;label(shortName(s[0]),x+r+5,y+.5,sat?"#fff":"#1d2433")});
@@ -264,9 +269,10 @@ pSm.innerHTML=SIZES.map(([t],i)=>`<label><input type="checkbox" value="${i}"> ${
 function sizeLabel(){const k=[...S.size].sort();if(!k.length)return "Any size";if(k.length===1)return "Size: "+SIZES[k[0]][0].toLowerCase();
   if(k.at(-1)-k[0]!==k.length-1)return `Size: ${k.length} ranges`;const lo=SIZES[k[0]][1],hi=SIZES[k.at(-1)][2],f=n=>n.toLocaleString("en-US");
   return k.length===SIZES.length?"Any size":!lo?`Size: under ${f(hi)}`:hi===Infinity?`Size: over ${f(lo)}`:`Size: ${f(lo)}–${f(hi)}`}
-function syncPills(){pR.value=S.minR;pD.value=S.sm;pR.classList.toggle("set",S.minR>0);pS.textContent=sizeLabel();pS.classList.toggle("set",S.size.size>0);
+function syncPills(){pR.value=S.minR;pD.value=S.sm;pR.classList.toggle("set",S.minR>0);pT.classList.toggle("set",S.topOnly);pS.textContent=sizeLabel();pS.classList.toggle("set",S.size.size>0);
   pSm.querySelectorAll("input").forEach(c=>c.checked=S.size.has(+c.value))}
 pR.onchange=()=>{S.minR=+pR.value;syncPills();renderAll()};pD.onchange=()=>{S.sm=+pD.value;renderAll()};
+const pT=document.getElementById("pT");pT.onclick=()=>{S.topOnly=!S.topOnly;syncPills();renderAll()};
 pS.onclick=e=>{e.stopPropagation();pSm.classList.toggle("show")};pSm.onclick=e=>e.stopPropagation();
 pSm.onchange=e=>{const i=+e.target.value;e.target.checked?S.size.add(i):S.size.delete(i);syncPills();renderAll()};
 document.addEventListener("click",()=>pSm.classList.remove("show"));
@@ -288,7 +294,7 @@ const lyGet=k=>k==="nb"?S.lyNb:k==="zip"?S.lyZip:k==="iso"?S.lyIso:S.lyZ[k];
 const legend=document.getElementById("legend");
 const KEYS={E:"● elementary and K-12",M:"◆ middle &nbsp;● K-12",H:"■ high &nbsp;● K-12"};
 legend.innerHTML='<div class="lgrate" title="State (TEA) rating. Colours the school zones and the school markers"><b>Rating</b>'+["A","B","C","D","F"].map(g=>`<span class="rk" style="background:${RC[g]}">${g}</span>`).join("")+'<span class="rk" style="background:#9aa0aa">?</span><span class="rk" style="background:'+PVTC+'">?</span></div>'+
-  '<div class="lgkey"><span id="lgshape"></span><br><span class="ring"></span> private, by its Niche grade<br>purple ? private, no grade<br>grey ? public, not rated</div>'+
+  '<div class="lgkey"><span id="lgshape"></span><br><span class="ring"></span> private, by its Niche grade<br>purple ? private, no grade<br>grey ? public, not rated<br><span style="color:#ffc928">★</span> named on a top-schools list</div>'+
   '<div class="lgtog">'+["E","M","H"].map(k=>`<button class="lg" data-ly="${k}" title="Show or hide the attendance zones">${SW[k]}Zones</button>`).join("")+`<button class="lg" data-ly="iso" title="Show or hide the drive-time shading">${SW.iso}Drive time</button></div>`+
   '<div class="lgscale" id="lgscale"><span>0</span><span class="bar"></span><span id="lgmax"></span></div>';
 document.querySelectorAll("[data-sw]").forEach(e=>e.innerHTML=SW[e.dataset.sw]);
@@ -317,7 +323,7 @@ function showSchool(j){const s=SCHOOLS[j];
   if(!passFilter(s)){if(!S.types.has(s[2])){S.types.add(s[2]);syncTyp()}
     const lv=s.serves||(s[1]==="K"?"":s[1]);if(lv&&![...lv].some(L=>S.levels.has(L)))setLvl(lv[0]);
     if(s[2]!=="pvt"&&(RANK[s.tea]||0)<S.minR){S.minR=RANK[s.tea]>=3?RANK[s.tea]:0}
-    if(!sizeOK(s))S.size.clear();syncPills()}
+    if(!sizeOK(s))S.size.clear();if(!s.topN)S.topOnly=false;syncPills()}
   select("sc",j);map.easeTo({center:[s[5],s[4]],zoom:Math.max(map.getZoom(),14),duration:600,offset:MOBILE.matches?[0,-innerHeight*.23]:[0,0]})}
 {const q=document.getElementById("q"),box=document.getElementById("qres");let hits=[],act=0;
   const norm=t=>t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9 ]/g,"");
@@ -371,8 +377,8 @@ function renderList(){
   listText=[];const grade=s=>s[2]==="pvt"?(s.niche||"no grade"):(s.tea||"not rated");
   const L=document.getElementById("list");L.innerHTML="";const sum=document.getElementById("summary");
   const item=(s,note)=>{const j=SCHOOLS.indexOf(s),t=homeT(s),d=document.createElement("div");d.className="item"+(S.sel&&S.sel.t==="sc"&&S.sel.i===j?" sel":"");
-    d.innerHTML=`<div class="nm"><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}</div><div class="num">${t!=null?fmt(t)+"<small>drive</small>":(s.students??"—")+"<small>students</small>"}</div><div class="sm">${s[3]} · grades ${s.grades}${t!=null&&s.students?` · ${s.students} students`:""}${note?` · <b>${note}</b>`:""}</div>`;
-    listText.push([s[0],grade(s),t!=null&&isFinite(t)?Math.round(t)+" min drive":null,s[3],"grades "+s.grades,s.students?s.students+" students":null,note||null].filter(Boolean).join(" · "));
+    d.innerHTML=`<div class="nm"><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}${star(s)}</div><div class="num">${t!=null?fmt(t)+"<small>drive</small>":(s.students??"—")+"<small>students</small>"}</div><div class="sm">${s[3]} · grades ${s.grades}${t!=null&&s.students?` · ${s.students} students`:""}${note?` · <b>${note}</b>`:""}</div>`;
+    listText.push([s[0],grade(s),s.topN?`top lists: ${s.topN}`:null,t!=null&&isFinite(t)?Math.round(t)+" min drive":null,s[3],"grades "+s.grades,s.students?s.students+" students":null,note||null].filter(Boolean).join(" · "));
     d.onclick=()=>select("sc",j,true);L.appendChild(d)};
   const head=(t,sub)=>{listText.push("",t.toUpperCase());const d=document.createElement("div");d.className="lhead";d.innerHTML=`${t}${sub?`<small>${sub}</small>`:""}`;L.appendChild(d)};
   const empty=t=>{listText.push(t);const d=document.createElement("div");d.className="lnone";d.textContent=t;L.appendChild(d)};
@@ -404,9 +410,10 @@ function select(t,i,center){S.sel=t?{t,i}:null;const mob=MOBILE.matches;if(t&&mo
 function refreshCard(){const card=document.getElementById("card"),body=document.getElementById("cardBody");sheet.classList.toggle("has-card",!!S.sel);if(!S.sel){card.classList.remove("show");return}
   {const j=S.sel.i,s=SCHOOLS[j];
     const q=encodeURIComponent(`${s[0]} ${s[3]} niche.com`);
-    body.innerHTML=`<h3>${s[0]}</h3><div class="meta">${LVL[s[1]]} · grades ${s.grades} · ${s[3]}${s[2]==="chr"?" (charter)":""}<br>${s.address}</div>
-    <table>${s[2]==="pvt"?`<tr><td colspan="3">Private school${s.students?`, ${s.students} students`:""} (${s.year?`federal private school survey, ${s.year}`:"listed by Niche, not in the federal survey"}). The state does not rate private schools.</td></tr>`:`<tr><td>State (TEA) rating</td><td class="n">${s.tea?badge(s.tea):"not rated"}</td><td class="n"><a href="https://txschools.gov/?view=school&id=${s.id}" target="_blank" rel="noopener">TXschools</a></td></tr><tr><td>Students</td><td class="n">${s.students??"—"}</td><td class="n">${s.students_year||""}</td></tr>`}
+    body.innerHTML=`<h3>${s[0]} ${star(s)}</h3><div class="meta">${LVL[s[1]]} · grades ${s.grades} · ${s[3]}${s[2]==="chr"?" (charter)":""}<br>${s.address}</div>
+    <table>${s[2]==="pvt"?`<tr><td colspan="3">Private school${s.students?`, ${s.students_year==="estimate"?`about ${s.students} students (<a href="${s.students_url}" target="_blank" rel="noopener" title="${s.students_src}">estimate</a>)`:s.students+" students"}`:""} (${s.year?`federal private school survey, ${s.year}`:"listed by Niche, not in the federal survey"}). The state does not rate private schools.</td></tr>`:`<tr><td>State (TEA) rating</td><td class="n">${s.tea?badge(s.tea):"not rated"}</td><td class="n"><a href="https://txschools.gov/?view=school&id=${s.id}" target="_blank" rel="noopener">TXschools</a></td></tr><tr><td>Students</td><td class="n">${s.students?(s.students_year==="estimate"?"about ":"")+s.students:"—"}</td><td class="n">${s.students_year==="estimate"?`<a href="${s.students_url}" target="_blank" rel="noopener" title="${s.students_src}">estimate</a>`:s.students_year||""}</td></tr>`}
     <tr><td>Niche grade</td><td class="n">${s.niche?`<span class="rt rNi">${s.niche}</span>`:s[2]==="pvt"?"none given":"not entered"}</td><td class="n"><a href="${s.niche_url||"https://www.google.com/search?q="+q}" target="_blank" rel="noopener">${s.niche_url?"Niche":"Find on Niche"}</a></td></tr></table>
+    ${s.top.length?`<div class="meta" style="color:#1d2433;font-weight:500;margin-top:8px">★ Top lists: ${s.topN} of 3 publishers</div><table>${s.top.map(m=>`<tr><td>${m.note}<br><span style="color:#6b7385;font-size:11.5px">${m.name}</span></td><td class="n"><a href="${m.url}" target="_blank" rel="noopener">source</a></td></tr>`).join("")}</table>`:""}
     <div class="meta" style="margin-top:8px">${s.zone?"Has an attendance zone. It is shaded on the map when that level's zones are on.":s[2]==="chr"?"Charter school: no attendance zone, admission is by application.":s[2]==="pvt"?"Private school: no attendance zone, admission is by application.":"No attendance zone on file."}</div>
     ${homeT(s)!=null?`<div class="meta">Drive from your home pin: <b>${fmt(homeT(s))}</b> (rough estimate)</div>`:""}`}
   card.classList.add("show")}

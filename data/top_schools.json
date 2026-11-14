@@ -1,0 +1,225 @@
+{
+ "about": "Schools named on published best-school lists, entered by hand on 2026-11-14 from the pages linked under each list. A school on the map gets one point per publisher that names it (U.S. News counts once). Listed schools outside the map area are under outside_area.",
+ "lists": {
+  "usn_k8": {
+   "name": "U.S. News Best Elementary and Middle Schools 2026",
+   "short": "U.S. News",
+   "scope": "Schools in the Texas top 100, as reported by CultureMap Austin (29 Oct 2025)",
+   "url": "https://austin.culturemap.com/news/city-life/us-news-schools-cactus-ranch"
+  },
+  "usn_hs": {
+   "name": "U.S. News Best High Schools 2026-2027",
+   "short": "U.S. News",
+   "scope": "Austin-area schools in the Texas top 100, as reported by CultureMap Austin (18 Aug 2026)",
+   "url": "https://austin.culturemap.com/news/city-life/us-news-best-schools-aisd/"
+  },
+  "car": {
+   "name": "Children at Risk school rankings 2024-2025",
+   "short": "Children at Risk",
+   "scope": "Top 10 per level in Central Texas",
+   "url": "https://childrenatrisk.org/wp-content/uploads/2025/11/CENTRALTX-Rankings-2024-2025-1.pdf"
+  },
+  "nbr": {
+   "name": "National Blue Ribbon Schools",
+   "short": "Blue Ribbon",
+   "scope": "Award years 2022 to 2024 checked; 2019 to 2021 and 2025 not checked",
+   "url": "https://gov.texas.gov/news/post/governor-abbott-congratulates-29-texas-national-blue-ribbon-schools"
+  }
+ },
+ "schools": {
+  "108807036": [
+   {
+    "list": "usn_hs",
+    "note": "No. 32 in Texas; No. 49 among US charter high schools"
+   },
+   {
+    "list": "car",
+    "note": "No. 3 high school in Central Texas"
+   }
+  ],
+  "227816006": [
+   {
+    "list": "car",
+    "note": "No. 9 elementary school in Central Texas"
+   }
+  ],
+  "227901005": [
+   {
+    "list": "car",
+    "note": "No. 6 high school in Central Texas"
+   }
+  ],
+  "227901013": [
+   {
+    "list": "car",
+    "note": "No. 7 high school in Central Texas"
+   }
+  ],
+  "227901018": [
+   {
+    "list": "usn_hs",
+    "note": "No. 5 in Texas, No. 43 in the US"
+   },
+   {
+    "list": "car",
+    "note": "No. 1 high school in Central Texas"
+   }
+  ],
+  "227901028": [
+   {
+    "list": "usn_hs",
+    "note": "No. 10 in Texas, No. 97 in the US"
+   }
+  ],
+  "227901103": [
+   {
+    "list": "usn_k8",
+    "note": "No. 77 in Texas (elementary)"
+   }
+  ],
+  "227901119": [
+   {
+    "list": "usn_k8",
+    "note": "No. 55 in Texas (elementary)"
+   }
+  ],
+  "227909001": [
+   {
+    "list": "usn_hs",
+    "note": "No. 53 in Texas"
+   },
+   {
+    "list": "car",
+    "note": "No. 10 high school in Central Texas"
+   }
+  ],
+  "227909041": [
+   {
+    "list": "usn_k8",
+    "note": "No. 28 in Texas (middle)"
+   },
+   {
+    "list": "car",
+    "note": "No. 4 middle school in Central Texas"
+   }
+  ],
+  "227909042": [
+   {
+    "list": "usn_k8",
+    "note": "No. 55 in Texas (middle)"
+   },
+   {
+    "list": "car",
+    "note": "No. 3 middle school in Central Texas"
+   }
+  ],
+  "227909102": [
+   {
+    "list": "usn_k8",
+    "note": "No. 84 in Texas (elementary)"
+   }
+  ],
+  "227909105": [
+   {
+    "list": "usn_k8",
+    "note": "No. 52 in Texas (elementary)"
+   }
+  ],
+  "227913001": [
+   {
+    "list": "car",
+    "note": "No. 5 high school in Central Texas"
+   }
+  ],
+  "227913043": [
+   {
+    "list": "car",
+    "note": "No. 8 middle school in Central Texas"
+   }
+  ],
+  "246909003": [
+   {
+    "list": "usn_hs",
+    "note": "No. 59 in Texas"
+   },
+   {
+    "list": "car",
+    "note": "No. 4 high school in Central Texas"
+   }
+  ],
+  "246909044": [
+   {
+    "list": "usn_k8",
+    "note": "Top 25 in Texas (middle)"
+   },
+   {
+    "list": "car",
+    "note": "No. 2 middle school in Central Texas"
+   }
+  ],
+  "246909116": [
+   {
+    "list": "usn_k8",
+    "note": "No. 22 in Texas (elementary)"
+   },
+   {
+    "list": "car",
+    "note": "No. 6 elementary school in Central Texas"
+   }
+  ],
+  "246909125": [
+   {
+    "list": "usn_k8",
+    "note": "No. 15 in Texas (elementary)"
+   },
+   {
+    "list": "car",
+    "note": "No. 1 elementary school in Central Texas"
+   }
+  ],
+  "246913111": [
+   {
+    "list": "car",
+    "note": "No. 4 elementary school in Central Texas"
+   }
+  ],
+  "246913113": [
+   {
+    "list": "car",
+    "note": "No. 5 elementary school in Central Texas"
+   }
+  ],
+  "246913123": [
+   {
+    "list": "usn_k8",
+    "note": "No. 83 in Texas (elementary)"
+   }
+  ],
+  "015834004": [
+   {
+    "list": "usn_k8",
+    "note": "No. 23 in Texas (elementary)"
+   }
+  ],
+  "P02186149": [
+   {
+    "list": "nbr",
+    "note": "National Blue Ribbon School, 2023"
+   }
+  ]
+ },
+ "outside_area": [
+  "Cactus Ranch Elementary (Round Rock ISD)",
+  "Patsy Sommer Elementary (Round Rock ISD)",
+  "Elsa England Elementary (Round Rock ISD)",
+  "Clayton Elementary (Austin ISD)",
+  "Mills Elementary (Austin ISD)",
+  "Cedar Valley Middle School (Round Rock ISD)",
+  "Stiles Middle School (Leander ISD)",
+  "Pearson Ranch Middle School (Round Rock ISD)",
+  "Walsh Middle School (Round Rock ISD)",
+  "Meridian World School",
+  "Round Rock High School (Round Rock ISD)",
+  "Harmony School of Endeavor"
+ ]
+}
