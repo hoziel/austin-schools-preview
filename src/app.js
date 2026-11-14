@@ -15,6 +15,8 @@ const SCHOOLS=[...SJ.schools,...PJ.schools].map(o=>Object.assign([o.name,o.level
 // Top-list score (data/top_schools.json): the published best-school lists that name a school. s.top holds the mentions,
 // s.topN the score: one point per publisher (U.S. News counts once however many of its lists name the school).
 for(const s of SCHOOLS){s.top=(TOP.schools[s.id]||[]).map(m=>({...m,...TOP.lists[m.list]}));s.topN=new Set(s.top.map(m=>m.short)).size}
+// What kind of school it is, where the source says so: affiliation, program, single-sex (the data scripts build s.tags)
+const tagsHtml=s=>(s.tags||[]).length?`<span class="tgs">${s.tags.map(t=>`<span class="tg">${t}</span>`).join("")}</span>`:"";
 const star=s=>s.topN?`<span class="tp" title="Named by ${[...new Set(s.top.map(m=>m.short))].join(" and ")}">★${s.topN}</span>`:"";
 const RANK={A:5,B:4,C:3,D:2,F:1};
 // NBGEO: neighborhood polygons, built by scripts/fetch_neighborhoods.mjs
@@ -377,8 +379,8 @@ function renderList(){
   listText=[];const grade=s=>s[2]==="pvt"?(s.niche||"no grade"):(s.tea||"not rated");
   const L=document.getElementById("list");L.innerHTML="";const sum=document.getElementById("summary");
   const item=(s,note)=>{const j=SCHOOLS.indexOf(s),t=homeT(s),d=document.createElement("div");d.className="item"+(S.sel&&S.sel.t==="sc"&&S.sel.i===j?" sel":"");
-    d.innerHTML=`<div class="nm"><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}${star(s)}</div><div class="num">${t!=null?fmt(t)+"<small>drive</small>":(s.students??"—")+"<small>students</small>"}</div><div class="sm">${s[3]} · grades ${s.grades}${t!=null&&s.students?` · ${s.students} students`:""}${note?` · <b>${note}</b>`:""}</div>`;
-    listText.push([s[0],grade(s),s.topN?`top lists: ${s.topN}`:null,t!=null&&isFinite(t)?Math.round(t)+" min drive":null,s[3],"grades "+s.grades,s.students?s.students+" students":null,note||null].filter(Boolean).join(" · "));
+    d.innerHTML=`<div class="nm"><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}${star(s)}</div><div class="num">${t!=null?fmt(t)+"<small>drive</small>":(s.students??"—")+"<small>students</small>"}</div><div class="sm">${s[3]} · grades ${s.grades}${t!=null&&s.students?` · ${s.students} students`:""}${note?` · <b>${note}</b>`:""}${tagsHtml(s)}</div>`;
+    listText.push([s[0],grade(s),s.topN?`top lists: ${s.topN}`:null,t!=null&&isFinite(t)?Math.round(t)+" min drive":null,s[3],"grades "+s.grades,s.students?s.students+" students":null,(s.tags||[]).join(", ")||null,note||null].filter(Boolean).join(" · "));
     d.onclick=()=>select("sc",j,true);L.appendChild(d)};
   const head=(t,sub)=>{listText.push("",t.toUpperCase());const d=document.createElement("div");d.className="lhead";d.innerHTML=`${t}${sub?`<small>${sub}</small>`:""}`;L.appendChild(d)};
   const empty=t=>{listText.push(t);const d=document.createElement("div");d.className="lnone";d.textContent=t;L.appendChild(d)};
@@ -397,8 +399,8 @@ function renderList(){
   sum.innerHTML=`Schools your home pin can use${homeGrid?", nearest first. Minutes are a rough estimate":""}.${left?` <b>${left}</b> public schools pass the filters but are left out: the pin is not zoned for them.`:""}`;
   if(pub){head("Your zoned public school",dist?`${dist}. A place is guaranteed`:"");
     if(zoned.length)zoned.forEach(s=>item(s,passFilter(s)?"":"outside your filters"));else empty(dist?"No zoned school on file at this level.":"No zone data for this spot. Lake Travis, Round Rock and Lago Vista ISDs publish none.");
-    if(choice.length){head(`${dist} schools without a zone`,"By application or lottery");choice.forEach(s=>item(s))}
-    head("Charter schools","Free, by application or lottery");chr.length?chr.forEach(s=>item(s)):empty("None pass the filters.")}
+    if(choice.length){head(`${dist} schools by application`,"Run by the district, no attendance zone. Open only to homes in the district");choice.forEach(s=>item(s))}
+    head("Charter schools","Free public schools run outside the districts. By application or lottery");chr.length?chr.forEach(s=>item(s)):empty("None pass the filters.")}
   if(S.types.has("pvt")){head("Private schools","Tuition, by application");pvt.length?pvt.forEach(s=>item(s)):empty("None pass the filters.")}
 }
 function select(t,i,center){S.sel=t?{t,i}:null;const mob=MOBILE.matches;if(t&&mob)setSheet("half");
@@ -410,7 +412,7 @@ function select(t,i,center){S.sel=t?{t,i}:null;const mob=MOBILE.matches;if(t&&mo
 function refreshCard(){const card=document.getElementById("card"),body=document.getElementById("cardBody");sheet.classList.toggle("has-card",!!S.sel);if(!S.sel){card.classList.remove("show");return}
   {const j=S.sel.i,s=SCHOOLS[j];
     const q=encodeURIComponent(`${s[0]} ${s[3]} niche.com`);
-    body.innerHTML=`<h3>${s[0]} ${star(s)}</h3><div class="meta">${LVL[s[1]]} · grades ${s.grades} · ${s[3]}${s[2]==="chr"?" (charter)":""}<br>${s.address}</div>
+    body.innerHTML=`<h3>${s[0]} ${star(s)}</h3><div class="meta">${LVL[s[1]]} · grades ${s.grades} · ${s[3]}${s[2]==="chr"?" (charter)":""}<br>${s.address}${tagsHtml(s)?`<br>${tagsHtml(s)}`:""}</div>
     <table>${s[2]==="pvt"?`<tr><td colspan="3">Private school${s.students?`, ${s.students_year==="estimate"?`about ${s.students} students (<a href="${s.students_url}" target="_blank" rel="noopener" title="${s.students_src}">estimate</a>)`:s.students+" students"}`:""} (${s.year?`federal private school survey, ${s.year}`:"listed by Niche, not in the federal survey"}). The state does not rate private schools.</td></tr>`:`<tr><td>State (TEA) rating</td><td class="n">${s.tea?badge(s.tea):"not rated"}</td><td class="n"><a href="https://txschools.gov/?view=school&id=${s.id}" target="_blank" rel="noopener">TXschools</a></td></tr><tr><td>Students</td><td class="n">${s.students?(s.students_year==="estimate"?"about ":"")+s.students:"—"}</td><td class="n">${s.students_year==="estimate"?`<a href="${s.students_url}" target="_blank" rel="noopener" title="${s.students_src}">estimate</a>`:s.students_year||""}</td></tr>`}
     <tr><td>Niche grade</td><td class="n">${s.niche?`<span class="rt rNi">${s.niche}</span>`:s[2]==="pvt"?"none given":"not entered"}</td><td class="n"><a href="${s.niche_url||"https://www.google.com/search?q="+q}" target="_blank" rel="noopener">${s.niche_url?"Niche":"Find on Niche"}</a></td></tr></table>
     ${s.top.length?`<div class="meta" style="color:#1d2433;font-weight:500;margin-top:8px">★ Top lists: named by ${s.topN} ${s.topN>1?"publishers":"publisher"}</div><table>${s.top.map(m=>`<tr><td>${m.note}<br><span style="color:#6b7385;font-size:11.5px">${m.name}</span></td><td class="n"><a href="${m.url}" target="_blank" rel="noopener">source</a></td></tr>`).join("")}</table>`:""}

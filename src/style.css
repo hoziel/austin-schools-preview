@@ -106,6 +106,9 @@ main{position:relative;overflow:hidden;background:var(--land)}
 .rt{display:inline-block;min-width:18px;text-align:center;border-radius:4px;font:600 11px "IBM Plex Mono",monospace;padding:1px 4px;color:#fff;vertical-align:1px}
 .rA{background:#1a9850}.rB{background:#6aa72b}.rC{background:#d9a400}.rD{background:#ef7d1a}.rF{background:#d73027}.rN{background:#a3a7b0}.rNi{background:#2f5bd3}.rP{background:#7c5cff}.rPv{box-shadow:0 0 0 2px #7c5cff}
 .tp{display:inline-block;border-radius:4px;font:600 11px "IBM Plex Mono",monospace;padding:1px 4px;background:#fff3c4;color:#7a5200;border:1px solid #f0c040;vertical-align:1px;margin-left:2px}
+.tgs{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:4px;vertical-align:1px}
+.tg{border:1px solid #cfd4de;background:#f1f3f7;color:#3d4658;border-radius:999px;font-size:10.5px;padding:0 7px;line-height:16px;white-space:nowrap}
+.card .tgs{margin:4px 0 0}
 .glyph{font-size:11px;opacity:.7}
 .zoom{position:absolute;right:10px;bottom:40px;display:flex;flex-direction:column;gap:4px}
 .zoom button{width:30px;height:30px;font-size:16px;padding:0}
