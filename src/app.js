@@ -1,5 +1,8 @@
 // Austin Schools Explorer. Data is loaded from /data. The map is MapLibre; overlays are drawn on a canvas above it.
-const load=p=>fetch(p).then(r=>{if(!r.ok)throw new Error(p+": "+r.status);return r.json()});
+// The page asks for this file as app.js?v=<version>. The same version goes on the data files, so a browser never mixes
+// a new page with an old cached script, stylesheet or data file.
+const VER=new URL(import.meta.url).search;
+const load=p=>fetch(p.startsWith("data/")?p+VER:p).then(r=>{if(!r.ok)throw new Error(p+": "+r.status);return r.json()});
 const POSITRON="https://tiles.openfreemap.org/styles/positron";
 const [SJ,NBGEO,ZGEO,BASEMAP,STREET,PJ]=await Promise.all(
   [...["data/schools.json","data/neighborhoods.geojson","data/school_zones.geojson","data/basemap_v1.json"].map(load),load(POSITRON).catch(()=>null),load("data/private_schools.json").catch(()=>({schools:[]}))]);
