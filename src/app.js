@@ -65,18 +65,17 @@ function timeAt(grid,lat,lng){const i=idxOf(lat,lng);if(i<0)return Infinity;if(i
 
 // ---------- STATE ----------
 const S={mode:"free",sm:8,minR:5,size:new Set([1,2,3]),levels:new Set(["E","M","H","K"]),types:new Set(["pub","chr","pvt"]),
-  sel:null,spot:null,home:null,placingHome:false,tab:"sc",base:"sat",view:"schools",lvl:"M",lyIso:false,lyNm:true,lyNb:true,lyZip:true,lyRd:false,lyZ:{E:false,M:true,H:false}};
+  sel:null,home:null,placingHome:false,tab:"sc",base:"sat",lvl:"M",lyIso:false,lyNm:true,lyNb:true,lyZip:true,lyRd:false,lyZ:{E:false,M:true,H:false}};
 // Map style. Default: neighborhoods as names only, school zones filled with their school's state rating colour,
 // school markers coloured by rating with the shape telling the level. Other styles from the address bar:
 //   ?nb=names|outline &zf=rating|none &dc=rating|level &z=EMH (zone levels on) &base=map|sat &zip=0
 const Q=new URLSearchParams(location.search);
 S.nb=Q.get("nb")||"names";S.zf=Q.get("zf")||"rating";S.dc=Q.get("dc")||"rating";
-if(Q.get("base"))S.base=Q.get("base");if(Q.get("view")==="place")S.view="place";if(Q.has("r"))S.minR=+Q.get("r");
+if(Q.get("base"))S.base=Q.get("base");if(Q.has("r"))S.minR=+Q.get("r");
 if(Q.has("full"))document.querySelector(".app").classList.add("full"); // map only, for screenshots
 if(Q.get("zip")==="0")S.lyZip=false;
 if(Q.has("z"))for(const L of "EMH")S.lyZ[L]=Q.get("z").includes(L);
 const RC={A:"#1a9850",B:"#7fbf3f",C:"#e6b800",D:"#ef7d1a",F:"#d73027"};
-let nbSchool=[];
 // NBpoly[k]: outer rings of neighborhood k as [[lat,lng],...]. Holes are ignored.
 const NBpoly=NBGEO.features.map(f=>f.geometry.coordinates.map(p=>p[0].map(([x,y])=>[y,x])));
 // NBHDS keeps the v1 row shape: [name, lat, lng, half-width km, half-height km]. lat/lng is a point inside the polygon.
@@ -97,12 +96,7 @@ const ZONES=ZGEO.features.map(f=>{const polys=f.geometry.coordinates.map(p=>p.ma
 const inZone=(z,lat,lng)=>lat>=z.bb[0]&&lat<=z.bb[2]&&lng>=z.bb[1]&&lng<=z.bb[3]&&z.polys.some(p=>inPoly(lat,lng,p[0])&&!p.slice(1).some(h=>inPoly(lat,lng,h)));
 // The zone a point falls in, per level (null when no zone data covers it)
 const zonedAt=(lat,lng)=>Object.fromEntries(["E","M","H"].map(L=>[L,ZONES.find(z=>z.level===L&&inZone(z,lat,lng))||null]));
-// Share of each neighborhood's area zoned for each school: NBZONE[k][level] = [[zone or null, share 0..1], ...], largest first
-const NBZONE=NBpoly.map(rings=>{const pts=rings.flat(),la=pts.map(p=>p[0]),ln=pts.map(p=>p[1]);
-  const a0=Math.min(...la),a1=Math.max(...la),b0=Math.min(...ln),b1=Math.max(...ln),G=40,tally={E:new Map(),M:new Map(),H:new Map()};let n=0;
-  for(let i=0;i<G;i++)for(let j=0;j<G;j++){const lat=a0+(a1-a0)*(i+.5)/G,lng=b0+(b1-b0)*(j+.5)/G;if(!rings.some(r=>inPoly(lat,lng,r)))continue;n++;
-    const z=zonedAt(lat,lng);for(const L in tally){const key=z[L]?z[L].school:"";const e=tally[L].get(key)||[z[L],0];e[1]++;tally[L].set(key,e)}}
-  return Object.fromEntries(Object.entries(tally).map(([L,m])=>[L,[...m.values()].map(([z,c])=>[z,c/n]).filter(e=>e[1]>=0.02).sort((x,y)=>y[1]-x[1])]))});
+
 
 // Home pin: kept in this browser only (localStorage), never in a file. homeGrid holds the drive from it to every cell.
 try{const h=JSON.parse(localStorage.getItem("home"));if(h&&isFinite(h.lat)&&isFinite(h.lng))S.home=h}catch(e){}
@@ -112,7 +106,6 @@ const homeT=s=>homeGrid?timeAt(homeGrid,s[4],s[5]):null;
 function setHome(h){S.home=h;S.placingHome=false;try{h?localStorage.setItem("home",JSON.stringify(h)):localStorage.removeItem("home")}catch(e){}computeHome();updPlaceUI();renderAll()}
 function recompute(){
   setSpeeds(S.mode);computeHome();
-  nbSchool=NBHDS.map(n=>{const g=dijkstra(idxOf(n[1],n[2]));return SCHOOLS.map(s=>timeAt(g,s[4],s[5]))});
 }
 // School size ranges for the size pill: [label, from, below]. Any number can be ticked; none ticked means any size.
 // A school with no student count passes only when none is ticked.
@@ -147,12 +140,12 @@ const toLL=(x,y)=>{const p=map.unproject([x,y]);return {lng:p.lng,lat:p.lat}};
 const isoCv=document.createElement("canvas");isoCv.width=COLS;isoCv.height=ROWS;
 const STOPS=[[0,[26,152,80]],[10,[145,207,96]],[20,[217,239,139]],[30,[254,224,139]],[40,[252,141,89]],[50,[215,48,39]],[60,[165,0,38]]];
 function colorFor(t){for(let i=1;i<STOPS.length;i++){if(t<=STOPS[i][0]){const [t0,c0]=STOPS[i-1],[t1,c1]=STOPS[i];const f=(t-t0)/(t1-t0);return c0.map((v,k)=>Math.round(v+(c1[k]-v)*f))}}return STOPS[STOPS.length-1][1]}
-// Drive-time shading. "Near schools": minutes to the nearest school that passes the filters. "From a place": minutes from the clicked spot.
+// Drive-time shading: minutes to the nearest school that passes the filters.
 // Colours run from 0 to the "drive to school" limit; past the "drive to school" limit the map is dimmed instead. Rebuilt only when its inputs change.
 let isoGrid=null,isoKey="";
 function ensureIso(){
-  const key=[S.view,S.mode,[...S.levels],[...S.types],S.minR,[...S.size],S.sm,S.view==="place"&&S.spot?S.spot.lat+","+S.spot.lng:""].join("|");if(key===isoKey)return;isoKey=key;setSpeeds(S.mode);
-  isoGrid=S.view==="schools"?dijkstra(SCHOOLS.filter(passFilter).map(s=>idxOf(s[4],s[5]))):S.spot?dijkstra(idxOf(S.spot.lat,S.spot.lng)):null;
+  const key=[S.mode,[...S.levels],[...S.types],S.minR,[...S.size],S.sm].join("|");if(key===isoKey)return;isoKey=key;setSpeeds(S.mode);
+  isoGrid=dijkstra(SCHOOLS.filter(passFilter).map(s=>idxOf(s[4],s[5])));
   const g=isoCv.getContext("2d"),img=g.createImageData(COLS,ROWS);
   if(isoGrid)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){if(cls[r*COLS+c]===3)continue;const t=isoGrid[r*COLS+c]+ACCESS;const o=((ROWS-1-r)*COLS+c)*4;
     if(t<=S.sm){const col=colorFor(t/S.sm*60);img.data[o]=col[0];img.data[o+1]=col[1];img.data[o+2]=col[2];img.data[o+3]=125}
@@ -161,13 +154,6 @@ function ensureIso(){
 }
 const NAME_MAX=16,NAME_ZOOM=38; // school name labels: longest label in characters, and the zoom (screen px per km) from which they show
 const shortName=n=>{n=n.replace(/ (Elementary|Middle|High|Junior High)( School)?$/,"").replace(/^The /,"");return n.length>NAME_MAX?n.slice(0,NAME_MAX-1).trimEnd()+"…":n};
-const placeT=s=>S.view==="place"&&S.spot&&isoGrid?timeAt(isoGrid,s[4],s[5]):null; // minutes from the picked place to a school
-// From a place, the schools that get a line and their minutes: the three the place is zoned for (always, whatever the filters),
-// plus private schools within the drive limit. With "All schools" on, every school that passes the filters within the limit.
-let mineKey="",mineSet=new Set();
-const mine=s=>{if(S.view!=="place"||!S.spot)return false;const k=S.spot.lat+","+S.spot.lng;
-  if(k!==mineKey){mineKey=k;mineSet=new Set(Object.values(zonedAt(S.spot.lat,S.spot.lng)).map(z=>z&&z.sch).filter(Boolean))}return mineSet.has(s)};
-const inPlace=s=>mine(s)||(passFilter(s)&&(S.placeAll||s[2]==="pvt")&&placeT(s)<=S.sm);
 function path(pts){ctx.beginPath();pts.forEach((p,i)=>{const x=X(p[1]),y=Y(p[0]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)})}
 function shape(ctx,x,y,r,type){ctx.beginPath();if(type==="pvt"){ctx.rect(x-r*.9,y-r*.9,r*1.8,r*1.8)}else if(type==="chr"){ctx.moveTo(x,y-r*1.25);ctx.lineTo(x+r*1.25,y);ctx.lineTo(x,y+r*1.25);ctx.lineTo(x-r*1.25,y);ctx.closePath()}else ctx.arc(x,y,r,0,Math.PI*2)}
 const LVLC={E:"#0f9d8a",M:"#d98a00",H:"#4f46e5",K:"#a21caf"}; // on white panels and the street map
@@ -183,27 +169,25 @@ function draw(){
   // iso
   if(S.lyIso&&isoGrid){const x0=X(LNG0),y0=Y(LAT0+ROWS*DLAT);ctx.imageSmoothingEnabled=true;ctx.drawImage(isoCv,x0,y0,X(LNG0+COLS*DLNG)-x0,Y(LAT0)-y0)}
   // school zones
-  const spotZ=S.spot?zonedAt(S.spot.lat,S.spot.lng):null,selS=S.sel&&S.sel.t==="sc"?SCHOOLS[S.sel.i]:null;
+  const selS=S.sel&&S.sel.t==="sc"?SCHOOLS[S.sel.i]:null;
   const fillL=S.zf==="rating"&&!(S.lyIso&&isoGrid)?["E","M","H"].find(L=>S.lyZ[L]):null; // rating fill for the youngest level shown, so fills never stack
   const pubOn=S.types.has("pub")||S.types.has("chr"); // attendance zones belong to public schools, so they go when only private schools are shown
   for(const L of ["H","M","E"]){if(!S.lyZ[L]||!pubOn)continue;ctx.setLineDash(ZDASH[L]);
     for(const z of ZONES){if(z.level!==L)continue;ctx.beginPath();
       for(const p of z.polys)for(const r of p){r.forEach((q,i)=>{const x=X(q[1]),y=Y(q[0]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath()}
       if(L===fillL){ctx.globalAlpha=sat?.42:.34;ctx.fillStyle=RC[z.sch&&z.sch.tea]||"#9aa0aa";ctx.fill("evenodd");ctx.globalAlpha=1}
-      if(spotZ&&spotZ[L]===z){ctx.globalAlpha=sat?.28:.16;ctx.fillStyle=MC[L];ctx.fill("evenodd");ctx.globalAlpha=1}
       cased(ZW[L],MC[L])}}
   ctx.setLineDash([]);
   // neighborhoods
   // ZIP areas first (thin, long dashes, no fill), then other neighborhoods, then the six focus areas on top
-  for(const T of ["zip","area","focus"])NBpoly.forEach((rings,k)=>{if(NBTIER[k]!==T||!nbShown(k))return;const sel=S.sel&&S.sel.t==="nb"&&S.sel.i===k;if(S.nb==="names"&&!sel)return;ctx.beginPath();
+  for(const T of ["zip","area","focus"])NBpoly.forEach((rings,k)=>{if(NBTIER[k]!==T||!nbShown(k))return;const sel=false;if(S.nb==="names")return;ctx.beginPath();
       for(const r of rings){r.forEach((p,i)=>{const x=X(p[1]),y=Y(p[0]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath()}
       const a=sel?.24:T==="focus"?.08:T==="area"?.04:0;if(a){ctx.fillStyle=sat?`rgba(255,224,74,${a})`:`rgba(29,36,51,${a*.7})`;ctx.fill()}
       ctx.setLineDash(T==="zip"?[14,7]:[]);cased(sel?3.6:T==="focus"?2.4:T==="area"?1.5:1.1,T==="zip"?ZIPC:NBC);ctx.setLineDash([])});
   // roads
   if(S.lyRd){for(const rd of ROADS){path(rd.p);ctx.strokeStyle="#fff";ctx.lineWidth=rd.c==="hwy"?5:3;ctx.stroke();ctx.strokeStyle=rd.c==="hwy"?"#9a8f7a":"#c4bba8";ctx.lineWidth=rd.c==="hwy"?2.5:1.3;ctx.stroke()}}
   // links: only from a picked place to the schools within the limit, each labelled with its minutes
-  const fromPlace=S.view==="place"&&S.spot&&isoGrid;
-  if(fromPlace){ctx.strokeStyle=LINK;ctx.lineWidth=1.4;SCHOOLS.forEach(s=>{if(inPlace(s)){ctx.beginPath();ctx.moveTo(X(S.spot.lng),Y(S.spot.lat));ctx.lineTo(X(s[5]),Y(s[4]));ctx.stroke()}})}
+
   // labels: neighborhoods
   // Focus names always; other neighborhoods once they are wide enough to hold the name; ZIP names when zoomed in a little
   if(V.z>11){ctx.textAlign="center";ctx.textBaseline="middle";
@@ -216,7 +200,7 @@ function draw(){
     for(const rd of ROADS){if(rd.c!=="hwy")continue;const p=rd.p[Math.floor(rd.p.length/2)];const x=X(p[1]),y=Y(p[0]);const w=ctx.measureText(rd.n).width+8;ctx.fillStyle="#fff";ctx.fillRect(x-w/2,y-7,w,14);ctx.strokeStyle="#9a8f7a";ctx.lineWidth=1;ctx.strokeRect(x-w/2,y-7,w,14);ctx.fillStyle="#5b5446";ctx.fillText(rd.n,x,y+.5)}}
   // schools
   const r=Math.max(4.5,Math.min(9,V.z/3));ctx.font="600 10px 'IBM Plex Mono',monospace";ctx.textAlign="center";ctx.textBaseline="middle";
-  SCHOOLS.forEach((s,j)=>{const x=X(s[5]),y=Y(s[4]);const ok=passFilter(s)||mine(s);const pt=placeT(s);const inC=pt==null||inPlace(s); // from a place: only the schools that get a line stay full size; otherwise the commute limit
+  SCHOOLS.forEach((s,j)=>{const x=X(s[5]),y=Y(s[4]);const ok=passFilter(s),inC=true;
     const sel=S.sel&&S.sel.t==="sc"&&S.sel.i===j;
     if(!ok){return}
     const byR=S.dc==="rating";
@@ -224,10 +208,8 @@ function draw(){
     const lt=s[2]==="pvt"&&!s.niche?"?":rate(s);if(r>=7.5&&lt){ctx.fillStyle=sat&&inC&&!byR?"#111":"#fff";ctx.fillText(lt,x,y+.5)}});
   // school names: small, to the right of the marker, cut to NAME_MAX characters; only once zoomed in enough to fit them
   if(S.lyNm&&V.z>=NAME_ZOOM){ctx.font="500 10.5px 'IBM Plex Sans',sans-serif";ctx.textAlign="left";
-    SCHOOLS.forEach(s=>{if(s===selS||(!passFilter(s)&&!mine(s)))return;const x=X(s[5]),y=Y(s[4]);if(x<-20||x>W||y<0||y>H)return;label(shortName(s[0]),x+r+5,y+.5,sat?"#fff":"#1d2433")});
+    SCHOOLS.forEach(s=>{if(s===selS||!passFilter(s))return;const x=X(s[5]),y=Y(s[4]);if(x<-20||x>W||y<0||y>H)return;label(shortName(s[0]),x+r+5,y+.5,sat?"#fff":"#1d2433")});
     ctx.textAlign="center";ctx.font="600 10px 'IBM Plex Mono',monospace"}
-  // from a place: minutes to each school within the limit
-  if(fromPlace){ctx.font="600 12px 'IBM Plex Mono',monospace";SCHOOLS.forEach(s=>{const t=placeT(s);if(inPlace(s))label(fmt(t),X(s[5]),Y(s[4])-r-9,sat?"#fff":"#111")});ctx.font="600 10px 'IBM Plex Mono',monospace"}
   // school zone labels
   if(V.z>22){ctx.textAlign="center";ctx.textBaseline="middle";
     for(const L of ["H","M","E"]){if(!S.lyZ[L]||!pubOn)continue;ctx.font=`${L==="E"?"500 11px":"600 12px"} 'IBM Plex Sans',sans-serif`;
@@ -241,30 +223,26 @@ function draw(){
       const t=homeT(selS);if(t!=null&&isFinite(t)&&Math.hypot(hx-x,hy-y)>70){ctx.font="600 12px 'IBM Plex Mono',monospace";ctx.textAlign="center";label(fmt(t)+" drive",(hx+x)/2,(hy+y)/2,sat?"#fff":"#111")}}
     ctx.beginPath();ctx.arc(x,y,r+9,0,Math.PI*2);ctx.lineWidth=5;ctx.strokeStyle="rgba(0,0,0,.5)";ctx.stroke();ctx.lineWidth=2.5;ctx.strokeStyle=hi;ctx.stroke();
     ctx.font="600 12.5px 'IBM Plex Sans',sans-serif";ctx.textAlign="left";label(selS[0],x+r+14,y+.5,sat?"#fff":"#111");ctx.textAlign="center"}
-  // clicked spot
-  if(S.spot){const x=X(S.spot.lng),y=Y(S.spot.lat);ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle="#111";ctx.stroke()}
   if(S.home){const x=X(S.home.lng),y=Y(S.home.lat);ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y-20,11,Math.PI*.75,Math.PI*2.25);ctx.closePath();ctx.fillStyle="#111827";ctx.fill();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();
     ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(x-6,y-19.5);ctx.lineTo(x,y-25.5);ctx.lineTo(x+6,y-19.5);ctx.lineTo(x+4,y-19.5);ctx.lineTo(x+4,y-14.5);ctx.lineTo(x-4,y-14.5);ctx.lineTo(x-4,y-19.5);ctx.closePath();ctx.fill()}
 }
 
 // ---------- INTERACTION ----------
-function hitSchool(x,y){let best=-1,bd=COARSE.matches?20:12;SCHOOLS.forEach((s,j)=>{if(!passFilter(s)&&!mine(s))return;const d=Math.hypot(X(s[5])-x,Y(s[4])-y);if(d<bd){bd=d;best=j}});return best}
+function hitSchool(x,y){let best=-1,bd=COARSE.matches?20:12;SCHOOLS.forEach((s,j)=>{if(!passFilter(s))return;const d=Math.hypot(X(s[5])-x,Y(s[4])-y);if(d<bd){bd=d;best=j}});return best}
 // The smallest named neighborhood under the point; a ZIP area only where no named one covers it.
-function hitNb(lat,lng){let best=-1,ba=1e9;NBpoly.forEach((p,k)=>{if(nbShown(k)&&p.some(r=>inPoly(lat,lng,r))){const a=NBAREA[k]+(NBTIER[k]==="zip"?1e4:0);if(a<ba){ba=a;best=k}}});return best}
 const tip=document.getElementById("tip"),mapCv=map.getCanvas();
 map.on("mousemove",e=>{const x=e.point.x,y=e.point.y;
   if(S.placingHome){tip.style.display="none";mapCv.style.cursor="crosshair";return}
   const j=hitSchool(x,y);
   if(j>=0){const s=SCHOOLS[j];tip.textContent=s[0]+(homeT(s)!=null?` · ${fmt(homeT(s))} from home`:"")+(rate(s)?` · rated ${rate(s)}`:"")+(s.students?` · ${s.students} students`:"");mapCv.style.cursor="pointer"}
-  else{const k=hitNb(e.lngLat.lat,e.lngLat.lng);tip.textContent=k>=0?NBHDS[k][0]:"";mapCv.style.cursor=k>=0?"pointer":""}
+  else{tip.textContent="";mapCv.style.cursor=""}
   tip.style.left=x+"px";tip.style.top=y+"px";tip.style.display=tip.textContent?"block":"none"});
 map.on("mouseout",()=>{tip.style.display="none"});
 // On a phone the sheet rises over the lower half of the map, so a tap down there is panned into view.
 const reveal=(ll,y)=>{if(MOBILE.matches&&y>innerHeight*.5)map.easeTo({center:[ll.lng,ll.lat],offset:[0,-innerHeight*.23],duration:300})};
 map.on("click",e=>{const ll=e.lngLat;
   if(S.placingHome){setHome({lat:+ll.lat.toFixed(5),lng:+ll.lng.toFixed(5)});if(!MOBILE.matches&&app.classList.contains("no-r"))document.getElementById("tgR").click();return}
-  const j=hitSchool(e.point.x,e.point.y);if(j>=0){if(S.view!=="place")S.spot=null;select("sc",j);reveal(ll,e.point.y);return}
-  S.spot={lat:ll.lat,lng:ll.lng};updPlaceUI();const k=hitNb(ll.lat,ll.lng);select(k>=0?"nb":"pt",k>=0?k:0);reveal(ll,e.point.y)});
+  const j=hitSchool(e.point.x,e.point.y);if(j>=0){select("sc",j);reveal(ll,e.point.y)}else if(S.sel)select(null)}); // a click on empty map closes the school card
 map.on("move",draw);map.on("resize",resize);map.on("load",draw);
 document.getElementById("zin").onclick=()=>map.zoomIn();
 document.getElementById("zout").onclick=()=>map.zoomOut();
@@ -292,7 +270,7 @@ document.addEventListener("click",()=>pSm.classList.remove("show"));
 syncPills();
 const badge=t=>`<span class="rt r${t||"N"}" title="State (TEA) rating">${t||"–"}</span>`;
 const rb=s=>s[2]==="pvt"?(s.niche?`<span class="rt r${s.niche[0]} rPv" title="Niche grade (private school, not rated by the state)">${s.niche}</span>`:'<span class="rt rP" title="Private school: not rated by the state, no Niche grade">?</span>'):badge(s.tea); // a school's rating badge
-function updPlaceUI(){const h=document.getElementById("hint");h.textContent=S.placingHome?"Click the map where your home is":"Click the map to pick a place";h.classList.toggle("show",S.placingHome||(S.view==="place"&&!S.spot));
+function updPlaceUI(){const h=document.getElementById("hint");h.classList.toggle("show",S.placingHome);
   const b=document.getElementById("pH");b.textContent=S.placingHome?"Cancel":S.home?"Move home pin":"Set home pin";b.classList.toggle("set",!!S.home||S.placingHome);document.getElementById("pHx").hidden=!S.home||S.placingHome}
 document.getElementById("pH").onclick=()=>{S.placingHome=!S.placingHome;updPlaceUI()};
 document.getElementById("pHx").onclick=()=>setHome(null);
@@ -312,7 +290,7 @@ legend.innerHTML='<div class="lgrate" title="State (TEA) rating. Colours the sch
   '<div class="lgscale" id="lgscale"><span>0</span><span class="bar"></span><span id="lgmax"></span></div>';
 document.querySelectorAll("[data-sw]").forEach(e=>e.innerHTML=SW[e.dataset.sw]);
 function syncLayers(){for(const [k,id] of LAYERS){document.getElementById(id).checked=lyGet(k);legend.querySelector(`[data-ly="${k}"]`)?.classList.toggle("off",!lyGet(k))}
-  document.getElementById("lgscale").classList.toggle("off",!S.lyIso);pD.hidden=!(S.lyIso||S.view==="place")}
+  document.getElementById("lgscale").classList.toggle("off",!S.lyIso);pD.hidden=!S.lyIso}
 function lySet(k,v){if(k==="nb")S.lyNb=v;else if(k==="zip")S.lyZip=v;else if(k==="iso")S.lyIso=v;else S.lyZ[k]=v;syncLayers();draw()}
 for(const [k,id] of LAYERS)document.getElementById(id).onchange=e=>lySet(k,e.target.checked);
 legend.querySelectorAll(".lg").forEach(b=>b.onclick=()=>lySet(b.dataset.ly,!lyGet(b.dataset.ly)));
@@ -323,18 +301,13 @@ syncLayers();
 function syncLvl(){const cur=["E","M","H"].filter(L=>S.levels.has(L));S.lvl=cur.length===3?"all":cur.length===1?cur[0]:"";document.querySelectorAll("#lvl button").forEach(b=>b.classList.toggle("on",b.dataset.l===S.lvl));legend.dataset.lvl=S.lvl;document.getElementById("lgshape").innerHTML=KEYS[S.lvl]||"● elementary &nbsp;◆ middle &nbsp;■ high"} // the map key lists only the chosen level's zones
 function setLvl(l){S.levels.clear();for(const L of l==="all"?["E","M","H","K"]:[l,"K"])S.levels.add(L);for(const L of "EMH")S.lyZ[L]=l==="all"?L==="E":L===l;
   syncLvl();syncLayers()}
-function setView(v){S.view=v;document.querySelector(".app").classList.toggle("v-place",v==="place"); // drive-time shading stays as the user left it (off at start)
-  document.querySelectorAll("#view button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
-  document.getElementById("lgscale").title=v==="schools"?"Minutes to the nearest school that passes your filters. Dimmed is past your limit.":"Minutes from the place you picked. Dimmed is past your limit.";syncLayers();updPlaceUI()}
 // Public / Private / Both. Public means district and charter schools together.
 function syncTyp(){const pub=S.types.has("pub")&&S.types.has("chr"),none=!S.types.has("pub")&&!S.types.has("chr"),pv=S.types.has("pvt");
   const cur=pub&&pv?"both":pub&&!pv?"pub":none&&pv?"pvt":"";document.querySelectorAll("#typ button").forEach(b=>b.classList.toggle("on",b.dataset.t===cur))}
 function setTyp(t){S.types.clear();for(const k of t==="pub"?["pub","chr"]:t==="pvt"?["pvt"]:["pub","chr","pvt"])S.types.add(k);syncTyp()}
 document.querySelectorAll("#typ button").forEach(b=>b.onclick=()=>{setTyp(b.dataset.t);renderAll()});syncTyp();
 document.querySelectorAll("#lvl button").forEach(b=>b.onclick=()=>{setLvl(b.dataset.l);renderAll()});
-document.querySelectorAll("#view button").forEach(b=>b.onclick=()=>{setView(b.dataset.v);renderAll()});
-document.getElementById("pall").onchange=e=>{S.placeAll=e.target.checked;renderAll()};
-{const iso=S.lyIso;setLvl(S.lvl);if(Q.has("z"))for(const L of "EMH")S.lyZ[L]=Q.get("z").includes(L);setView(S.view);if(Q.has("iso"))S.lyIso=Q.get("iso")!=="0";else S.lyIso=iso;syncLayers()}
+{const iso=S.lyIso;setLvl(S.lvl);if(Q.has("z"))for(const L of "EMH")S.lyZ[L]=Q.get("z").includes(L);updPlaceUI();if(Q.has("iso"))S.lyIso=Q.get("iso")!=="0";else S.lyIso=iso;syncLayers()}
 // Search by school name. Picking a result zooms to the school and opens its card. If the current level, type or
 // minimum rating would hide it, those are changed just enough to show it.
 function showSchool(j){const s=SCHOOLS[j];
@@ -411,37 +384,20 @@ function renderList(){
     head("Charter schools","Free, by application or lottery");chr.length?chr.forEach(s=>item(s)):empty("None pass the filters.")}
   if(S.types.has("pvt")){head("Private schools","Tuition, by application");pvt.length?pvt.forEach(s=>item(s)):empty("None pass the filters.")}
 }
-function select(t,i,center){S.sel=t?{t,i}:null;if((!t||center)&&S.view!=="place")S.spot=null;const mob=MOBILE.matches;if(t&&mob)setSheet("half");
+function select(t,i,center){S.sel=t?{t,i}:null;const mob=MOBILE.matches;if(t&&mob)setSheet("half");
   // a school picked from the list: frame the school together with its attendance zone and the home pin
   if(center&&t==="sc"){const sc=SCHOOLS[i],z=ZONES.find(z=>z.sch===sc),pts=[[sc[4],sc[5]]];if(S.home)pts.push([S.home.lat,S.home.lng]);if(z)for(const p of z.polys)for(const q of p)for(const c of q)pts.push(c);
     if(pts.length>1){const la=pts.map(p=>p[0]),lo=pts.map(p=>p[1]);map.fitBounds([[Math.min(...lo),Math.min(...la)],[Math.max(...lo),Math.max(...la)]],{padding:mob?{top:250,bottom:Math.round(innerHeight*.5),left:30,right:30}:{top:150,bottom:70,left:70,right:70},maxZoom:14,duration:500});center=false}}
-  if(center&&t){const ll=t==="nb"?[NBHDS[i][1],NBHDS[i][2]]:[SCHOOLS[i][4],SCHOOLS[i][5]];map.easeTo({center:[ll[1],ll[0]],zoom:Math.max(map.getZoom(),12),duration:400,offset:mob?[0,-innerHeight*.23]:[0,0]})}
+  if(center&&t){const ll=[SCHOOLS[i][4],SCHOOLS[i][5]];map.easeTo({center:[ll[1],ll[0]],zoom:Math.max(map.getZoom(),12),duration:400,offset:mob?[0,-innerHeight*.23]:[0,0]})}
   draw();renderList();refreshCard()}
 function refreshCard(){const card=document.getElementById("card"),body=document.getElementById("cardBody");sheet.classList.toggle("has-card",!!S.sel);if(!S.sel){card.classList.remove("show");return}
-  const LV={E:"Elementary",M:"Middle",H:"High"};
-  const zoneRows=f=>["E","M","H"].map(L=>`<tr><td style="width:84px;color:${LVLC[L]};font-weight:500;vertical-align:top">${LV[L]}</td><td>${f(L)}</td></tr>`).join("");
-  const noData='<span style="color:#6b7385">no zone data</span>';
-  const zb=z=>z&&z.sch?" "+badge(z.sch.tea):"";
-  const spotHtml=()=>{const z=zonedAt(S.spot.lat,S.spot.lng);return `<table>${zoneRows(L=>z[L]?`${z[L].school}${zb(z[L])}${z[L].sch&&placeT(z[L].sch)!=null?` <b style="float:right;font-family:'IBM Plex Mono',monospace">${fmt(placeT(z[L].sch))}</b>`:""}<br><span style="color:#6b7385;font-size:11.5px">${z[L].district} · ${z[L].year}</span>`:noData)}</table>`};
-  // from a place: the chosen schools within the drive limit, nearest first
-  const placeHtml=()=>{if(S.view!=="place"||!S.spot||!isoGrid)return "";const rows=SCHOOLS.map(s=>[s,placeT(s)]).filter(([s])=>inPlace(s)&&!mine(s)).sort((a,b)=>a[1]-b[1]);
-    return `<div class="meta" style="color:#1d2433;font-weight:500;margin-top:8px">${S.placeAll?"Other schools":"Private schools"} within ${S.sm} min of this place: ${rows.length} (rough estimate)</div><table>${rows.map(([s,t])=>`<tr><td><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}<br><span style="color:#6b7385;font-size:11.5px">${LVL[s[1]]} · ${s[3]}</span></td><td class="n">${fmt(t)}</td></tr>`).join("")||"<tr><td>None. Try a longer drive.</td></tr>"}</table>`};
-  if(S.sel.t==="pt"){body.innerHTML=`<h3>Zoned public schools here</h3>${spotHtml()}${placeHtml()}`;card.classList.add("show");return}
-  if(S.sel.t==="nb"){const k=S.sel.i,n=NBHDS[k];const sch=SCHOOLS.map((s,j)=>[j,nbSchool[k][j]]).filter(([j,t])=>passFilter(SCHOOLS[j])&&t<=S.sm).sort((a,b)=>a[1]-b[1]);
-    const P=NBGEO.features[k].properties;
-    body.innerHTML=`<h3>${n[0]}</h3><div class="meta">${P.area_sqkm} km² · outline: ${P.source_name}, ${P.source}</div>
-    <div class="meta" style="color:#1d2433;font-weight:500;margin-top:8px">Zoned public schools, by share of the neighborhood's area</div>
-    <table>${zoneRows(L=>NBZONE[k][L].map(([z,sh])=>`${z?z.short+zb(z):noData} <span style="color:#6b7385">${Math.round(sh*100)}%</span>`).join(" · ")||noData)}</table>
-    ${S.spot?`<div class="meta" style="color:#1d2433;font-weight:500;margin-top:8px">Where you clicked</div>${spotHtml()}${placeHtml()}`:""}
-    <div class="meta" style="margin-top:8px">${sch.length} schools passing the filters within ${S.sm} min drive of the area's center (drive times are still the rough v1 estimate):</div>
-    <table>${sch.map(([j,t])=>{const s=SCHOOLS[j];return `<tr><td><span class="dot" style="background:${LVLC[s[1]]}"></span> ${s[0]} ${rb(s)}<br><span style="color:#6b7385;font-size:11.5px">${s[3]} · ${TYP[s[2]]}</span></td><td class="n">${fmt(t)}</td></tr>`}).join("")||"<tr><td>None with current filters. Try a longer school drive.</td></tr>"}</table>`}
-  else{const j=S.sel.i,s=SCHOOLS[j];
+  {const j=S.sel.i,s=SCHOOLS[j];
     const q=encodeURIComponent(`${s[0]} ${s[3]} niche.com`);
     body.innerHTML=`<h3>${s[0]}</h3><div class="meta">${LVL[s[1]]} · grades ${s.grades} · ${s[3]}${s[2]==="chr"?" (charter)":""}<br>${s.address}</div>
     <table>${s[2]==="pvt"?`<tr><td colspan="3">Private school${s.students?`, ${s.students} students`:""} (${s.year?`federal private school survey, ${s.year}`:"listed by Niche, not in the federal survey"}). The state does not rate private schools.</td></tr>`:`<tr><td>State (TEA) rating</td><td class="n">${s.tea?badge(s.tea):"not rated"}</td><td class="n"><a href="https://txschools.gov/?view=school&id=${s.id}" target="_blank" rel="noopener">TXschools</a></td></tr><tr><td>Students</td><td class="n">${s.students??"—"}</td><td class="n">${s.students_year||""}</td></tr>`}
     <tr><td>Niche grade</td><td class="n">${s.niche?`<span class="rt rNi">${s.niche}</span>`:s[2]==="pvt"?"none given":"not entered"}</td><td class="n"><a href="${s.niche_url||"https://www.google.com/search?q="+q}" target="_blank" rel="noopener">${s.niche_url?"Niche":"Find on Niche"}</a></td></tr></table>
     <div class="meta" style="margin-top:8px">${s.zone?"Has an attendance zone. It is shaded on the map when that level's zones are on.":s[2]==="chr"?"Charter school: no attendance zone, admission is by application.":s[2]==="pvt"?"Private school: no attendance zone, admission is by application.":"No attendance zone on file."}</div>
-    ${homeT(s)!=null?`<div class="meta">Drive from your home pin: <b>${fmt(homeT(s))}</b> (rough estimate)</div>`:""}${placeT(s)!=null?`<div class="meta">From the place you picked: <b>${fmt(placeT(s))}</b></div>`:""}`}
+    ${homeT(s)!=null?`<div class="meta">Drive from your home pin: <b>${fmt(homeT(s))}</b> (rough estimate)</div>`:""}`}
   card.classList.add("show")}
 function renderAll(){draw();renderList();refreshCard()}
 
