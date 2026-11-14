@@ -260,7 +260,8 @@ const reveal=(ll,y)=>{if(MOBILE.matches&&y>innerHeight*.5)map.easeTo({center:[ll
 map.on("click",e=>{const ll=e.lngLat;
   if(S.placingHome){setHome({lat:+ll.lat.toFixed(5),lng:+ll.lng.toFixed(5)});if(!MOBILE.matches&&app.classList.contains("no-r"))document.getElementById("tgR").click();return}
   const j=hitSchool(e.point.x,e.point.y);if(j>=0){select("sc",j);reveal(ll,e.point.y)}else if(S.sel)select(null)}); // a click on empty map closes the school card
-map.on("move",draw);map.on("resize",resize);map.on("load",draw);
+map.on("move",draw);map.on("moveend",()=>{if(!S.home)renderList()}); // with no home pin the list follows the map view
+map.on("resize",resize);map.on("load",draw);
 document.getElementById("zin").onclick=()=>map.zoomIn();
 document.getElementById("zout").onclick=()=>map.zoomOut();
 document.getElementById("zfit").onclick=fit;
@@ -401,9 +402,10 @@ function renderList(){
     if(h)d.querySelector(".hq").onclick=()=>{helpOpen.has(key)?helpOpen.delete(key):helpOpen.add(key);d.querySelector(".hhelp").hidden=!helpOpen.has(key)};L.appendChild(d)};
   const empty=t=>{listText.push(t);const d=document.createElement("div");d.className="lnone";d.textContent=t;L.appendChild(d)};
   const byDrive=(a,b)=>homeGrid?homeT(a)-homeT(b):(RANK[rate(b)]||0)-(RANK[rate(a)]||0)||a[0].localeCompare(b[0]);
-  // No home pin: every school that passes the filters, best rated first.
-  if(!S.home){const rows=SCHOOLS.filter(passFilter).sort(byDrive);
-    sum.innerHTML=`<b>${rows.length}</b> schools pass the filters, best rated first. Set a home pin on the map to see only the schools that home can use, by drive time.`;rows.forEach(s=>item(s));return}
+  // No home pin: the schools that pass the filters and sit inside the current map view, best rated first.
+  if(!S.home){const b=map.getBounds(),all=SCHOOLS.filter(passFilter),rows=all.filter(s=>b.contains([s[5],s[4]])).sort(byDrive);
+    sum.innerHTML=`<b>${rows.length}</b> of ${all.length} schools that pass the filters are in the map view, best rated first. Move or zoom the map to change the list. Set a home pin to see only the schools that home can use, by drive time.`;
+    rows.length?rows.forEach(s=>item(s)):empty("No school that passes the filters is in view. Zoom out or move the map.");return}
   // With a home pin: only the schools that home can use. A home is zoned to one public school per level; public schools it is
   // not zoned for (other zones, other districts) are left out. District schools without a zone, charter schools and private
   // schools take students by application, so they are listed, nearest first. The zoned school shows even when it fails the filters.
