@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Austin Schools Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div class="app sat no-l no-r">
+<main id="main">
+ <div class="mapwrap" id="mapwrap">
+  <div id="map"></div>
+  <canvas id="cv"></canvas>
+  <div class="ctl">
+   <div class="cbox">
+    <div class="crow">
+     <div class="srch"><input id="q" type="search" placeholder="Find a school" autocomplete="off" spellcheck="false"><div class="qres" id="qres"></div></div>
+     <div class="ptog"><button id="tgL" title="Show or hide the map layers and the notes on sources">Layers</button><button id="tgR" title="Show or hide the list of schools">Results</button></div>
+    </div>
+    <div class="seg" id="lvl" title="Which schools the map is about. Shows that level's schools and attendance zones"><button data-l="E">Elementary</button><button data-l="M">Middle</button><button data-l="H">High</button></div>
+    <div class="crow">
+     <div class="seg" id="typ" title="Public schools come with attendance zones. Private schools have none"><button data-t="pub">Public</button><button data-t="pvt">Private</button><button data-t="both">Both</button></div>
+     <div class="seg" id="view"><button data-v="schools" title="Start from schools: the map is shaded by the drive to the nearest school you chose">Near schools</button><button data-v="place" title="Start from a place: click the map to see the drive to each chosen school">From a place</button></div>
+    </div>
+    <label class="pall"><input type="checkbox" id="pall"> Show every school that passes the filters</label>
+   </div>
+   <div class="fpills">
+    <select id="pR" autocomplete="off" title="Lowest rating to show. Public schools: state rating. Private schools: Niche grade"></select>
+    <div class="fp"><button id="pS" class="fpb" title="School size, by number of students. Tick as many ranges as you like"></button><div class="fmenu" id="pSm"></div></div>
+    <select id="pD" autocomplete="off" title="The drive limit. Near schools: where the drive-time shading stops. From a place: how far the listed schools may be"></select>
+    <span class="fph"><button id="pH" class="fpb home" title="Place a pin where you live. The results then list schools by drive time from it. The pin is kept in this browser only"></button><button id="pHx" class="fpb x" title="Remove the home pin" hidden>×</button></span>
+   </div>
+  </div>
+  <div class="hint" id="hint">Click the map to pick a place</div>
+  <div class="tip" id="tip"></div>
+  <div class="legend" id="legend"></div>
+  <div class="zoom"><button id="zbase" title="Switch between satellite and street map">Map</button><button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Reset view" style="font-size:12px">⤢</button></div>
+ </div>
+</main>
+
+<div class="sheet" id="sheet" data-s="peek">
+  <div class="sheethead" id="sheethead">
+    <div class="grab" id="grab"></div>
+    <div class="mtabs" id="mtabs">
+      <button data-p="sc" class="on">Schools</button>
+      <button data-p="set">Settings</button>
+    </div>
+  </div>
+  <div class="sheetbody" id="sheetbody">
+    <div class="card" id="card"><button class="x" id="cardX">×</button><div id="cardBody"></div></div>
+<aside class="left">
+  <div class="sec">
+    <h1>Austin schools explorer</h1>
+    <p class="sub">Schools, their ratings, attendance zones and estimated drive times on one map. The filters sit on the map; this panel holds the map layers and the notes on sources.</p>
+  </div>
+  <div class="sec">
+    <h2>Layers</h2>
+    <div class="seg" id="base" style="margin-bottom:8px"><button data-b="sat" class="on">Satellite</button><button data-b="map">Street map</button></div>
+    <label class="toggle"><input type="checkbox" id="lyNb" checked> <span data-sw="nb"></span> Neighborhood names</label>
+    <label class="toggle"><input type="checkbox" id="lyZip" checked> <span data-sw="zip"></span> ZIP code areas</label>
+    <label class="toggle"><input type="checkbox" id="lyZE"> <span data-sw="E"></span> Elementary school zones</label>
+    <label class="toggle"><input type="checkbox" id="lyZM"> <span data-sw="M"></span> Middle school zones</label>
+    <label class="toggle"><input type="checkbox" id="lyZH"> <span data-sw="H"></span> High school zones</label>
+    <label class="toggle"><input type="checkbox" id="lyIso"> <span data-sw="iso"></span> Drive-time shading</label>
+    <label class="toggle"><input type="checkbox" id="lyNm" checked> School names next to the markers</label>
+    <label class="toggle"><input type="checkbox" id="lyRd"> Roads the drive-time model uses</label>
+    <div class="slider"><div class="lab"><span>Traffic in the drive estimates</span></div>
+      <div class="seg" id="mode"><button data-m="free" class="on">Off-peak</button><button data-m="rush">Rush hour</button></div></div>
+  </div>
+  <div class="sec note">
+    <b>How to read this.</b> Two ways to look. <i>Near schools</i>: pick a level and a minimum rating, and the map is shaded by the drive to the nearest school that passes. <i>From a place</i>: click the map to see the drive to the three schools that spot is zoned for and to nearby private schools; tick "All schools" to add every school that passes your filters. Drive times are estimates from a simple road-speed model (highways, main roads, local streets, lakes as barriers). They're not live traffic. Expect ±25%, and check your shortlist in Google Maps at the hour you'd drive.<br><br>
+    Neighborhood outlines come from the City of Austin Community Registry (neighborhood and homeowner association areas) and the US Census (West Lake Hills, Rollingwood, Lost Creek, Barton Creek, Steiner Ranch). "Westlake" is the whole Eanes ISD area, which takes in West Lake Hills, Rollingwood and the parts of Austin around them. Published neighborhoods leave gaps, so Census ZIP code areas sit underneath and every home falls in at least one area. ★ marks the six focus areas. None of these are legal or school boundaries. Satellite imagery: Esri World Imagery.<br><br>
+    School zones: Austin ISD's 2026-27 school assignments and Leander ISD's 2024-25 attendance zones, from the districts' own maps. Eanes ISD's zones come from the district's own address lookup (2026-27). Lake Travis, Round Rock and Lago Vista ISDs publish no usable zone data, so their areas have no zones. Click anywhere on the map to see the schools that spot is zoned for. Confirm an address with the district before relying on it.<br><br>
+    Schools are every public campus (district and charter) in the area, with location and A to F rating from the Texas Education Agency's <a href="https://txschools.gov/">TXschools.gov</a> feed. Their student counts are the agency's October 2024 enrollment; private schools' counts are from the federal survey. A school with no count shows only under "Any size". Private schools come from the federal Private School Universe Survey (2023-24, with 2021-22 filling in schools that skipped a round); schools report themselves, so the list can miss some (a few that Niche grades but the survey lacks are added, placed by the US Census geocoder), and the state does not rate them. Where Niche gives a private school an overall grade (its 2027 Austin-area private school list), that grade stands in for the rating. Public schools' Niche grades are not loaded yet: Niche blocks automated reading, so each school links to its Niche page instead.
+  </div>
+</aside>
+
+<aside class="right">
+  <div class="sec" style="padding-bottom:10px">
+    <h2 style="margin-top:0">Schools</h2>
+    <div class="summary" id="summary"></div>
+  </div>
+  <div class="list" id="list"></div>
+</aside>
+  </div>
+</div>
+</div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
