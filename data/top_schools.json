@@ -1,5 +1,5 @@
 {
- "about": "Schools named on published best-school lists, entered by hand on 2026-11-14 from the pages linked under each list. A school on the map gets one point per publisher that names it (U.S. News counts once). Listed schools outside the map area are under outside_area.",
+ "about": "Schools named on published best-school lists, entered by hand on 2026-11-14 from the pages linked under each list. A school on the map gets one point per publisher that names it (U.S. News counts once). Three publishers rank public schools only; College Transitions covers private high schools only. Listed schools outside the map area are under outside_area.",
  "lists": {
   "usn_k8": {
    "name": "U.S. News Best Elementary and Middle Schools 2026",
@@ -24,6 +24,12 @@
    "short": "Blue Ribbon",
    "scope": "Award years 2022 to 2024 checked; 2019 to 2021 and 2025 not checked",
    "url": "https://gov.texas.gov/news/post/governor-abbott-congratulates-29-texas-national-blue-ribbon-schools"
+  },
+  "ct": {
+   "name": "College Transitions: Best Private Schools in Austin, 2025",
+   "short": "College Transitions",
+   "scope": "Nine private high schools picked for where their graduates go to college; the article says the order is not a ranking. Its unnumbered featured school (Alpha High) is left out",
+   "url": "https://www.collegetransitions.com/blog/best-private-schools-in-austin/"
   }
  },
  "schools": {
@@ -205,6 +211,60 @@
    {
     "list": "nbr",
     "note": "National Blue Ribbon School, 2023"
+   }
+  ],
+  "P01325924": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PBB162882": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PA0303144": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PA9904272": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PA0109452": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "P02121737": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PBB162898": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PA1790497": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
+   }
+  ],
+  "PA9503923": [
+   {
+    "list": "ct",
+    "note": "One of nine best private high schools in Austin (not ranked)"
    }
   ]
  },
