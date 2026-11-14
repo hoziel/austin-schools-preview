@@ -71,7 +71,7 @@ const ACCESS=2; // minutes to get to/from the road network
 function timeAt(grid,lat,lng){const i=idxOf(lat,lng);if(i<0)return Infinity;if(isFinite(grid[i]))return grid[i]+ACCESS;const r=(i/COLS)|0,c=i-r*COLS;let m=Infinity;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=c+dc;if(rr>=0&&cc>=0&&rr<ROWS&&cc<COLS)m=Math.min(m,grid[rr*COLS+cc])}return m+ACCESS+1}
 
 // ---------- STATE ----------
-const S={mode:"free",sm:8,minR:5,topOnly:false,size:new Set([1,2,3]),levels:new Set(["E","M","H","K"]),types:new Set(["pub","chr","pvt"]),
+const S={mode:"free",sm:8,minR:5,topOnly:false,size:new Set([2,3,4]),levels:new Set(["E","M","H","K"]),types:new Set(["pub","chr","pvt"]),
   sel:null,home:null,placingHome:false,tab:"sc",base:"sat",lvl:"M",lyIso:false,lyNm:true,lyNb:true,lyZip:true,lyRd:false,lyZ:{E:false,M:true,H:false}};
 // Map style. Default: neighborhoods as names only, school zones filled with their school's state rating colour,
 // school markers coloured by rating with the shape telling the level. Other styles from the address bar:
@@ -116,7 +116,7 @@ function recompute(){
 }
 // School size ranges for the size pill: [label, from, below]. Any number can be ticked; none ticked means any size.
 // A school with no student count passes only when none is ticked.
-const SIZES=[["Under 300",0,300],["300–600",300,600],["600–1,000",600,1000],["Over 1,000",1000,Infinity]];
+const SIZES=[["Under 150",0,150],["150–300",150,300],["300–600",300,600],["600–1,000",600,1000],["Over 1,000",1000,Infinity]];
 const sizeOK=s=>!S.size.size||[...S.size].some(i=>s.students>=SIZES[i][1]&&s.students<SIZES[i][2]);
 // The letter a school is rated by: the state rating for public schools; for private schools, which the state does not rate,
 // the Niche grade without its plus or minus (null when Niche has not graded the school).
